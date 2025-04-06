@@ -1,0 +1,107 @@
+A grandes rasgos, las distintas formas de declarar y usar la variable numero en C difieren en dos aspectos principales:
+	1.	Ámbito (scope): determina desde dónde se puede “ver” (o usar) la variable en el código.
+	2.	Duración (lifetime): determina cuánto tiempo permanece “viva” la variable en memoria (por ejemplo, solo durante la ejecución de una función, o durante toda la ejecución del programa).
+
+A continuación se describen las diferencias típicas según los ejemplos mostrados:
+
+⸻
+
+1) int foo() { int numero = 21; }
+	•	Declaración: int numero = 21; dentro de la función.
+	•	Ámbito: Local a la función foo(). Solo puede usarse dentro de esa función.
+	•	Duración: Automática. Se crea al entrar en la función y se destruye al salir de ella.
+	•	Linkage: No aplica (no es visible fuera de la función).
+
+En el ejemplo 2 ocurre lo mismo, simplemente está en otro archivo pero la forma es igual:
+
+2) int foo() { int numero = 21; } (en otro archivo)
+	•	Mismo comportamiento que el punto 1: variable local automática.
+
+⸻
+
+3) (Declaración global y uso dentro de una función)
+
+El ejemplo del enunciado muestra algo como:
+
+int numero;   // o extern int numero;
+int foo() {
+    numero = 21;
+}
+
+(En la imagen se ve int numero();, que en realidad sería un prototipo de función;
+suponiendo que sea un global int numero;, se explican las diferencias con una global.)
+	•	Declaración: int numero; fuera de cualquier función (ámbito global).
+	•	Ámbito: Global en todo el programa (o al menos en el translation unit donde se declare sin static).
+	•	Duración: Estática. Existe durante toda la ejecución del programa.
+	•	Linkage: Externo (si no se declara como static). Puede ser accedida desde otros archivos si se declara con extern int numero; en ellos.
+
+En el interior de la función foo(), al hacer numero = 21;, se está asignando a la variable global.
+
+⸻
+
+4) int foo() { static int numero = 21; }
+	•	Declaración: static int numero = 21; dentro de la función foo().
+	•	Ámbito: Local a la función foo(). Solo es “visible” dentro de foo().
+	•	Duración: Estática (persistente). Se inicializa solo una vez (al inicio del programa) y conserva su valor entre llamadas sucesivas a foo().
+	•	Linkage: No tiene linkage externo, ya que está dentro de la función. Pero sí permanece en memoria durante toda la ejecución.
+
+⸻
+
+5) extern int numero; int foo() { numero = 10; }
+	•	Declaración: extern int numero; indica que numero está definida en otro lugar (otro archivo).
+	•	Ámbito: Es la de la variable global real (definida en otro lado). Aquí solo se está “avisando” al compilador que existe.
+	•	Duración: Estática (porque la variable “real” es global).
+	•	Linkage: Externo. Se asume que en algún otro archivo habrá un int numero; o int numero = <valor>; que es la definición.
+
+⸻
+
+Variables globales con y sin static a nivel de archivo
+
+En el material también se observa algo como:
+
+int numero = 21;     // Global con linkage externo
+int bar() {
+    numero = 30;
+}
+
+static int numero = 10;  // Global con linkage interno (solo visible en este .c)
+int foo() {
+    numero = 20;
+}
+
+Aquí se ven dos declaraciones a “nivel de archivo” (fuera de cualquier función):
+	1.	int numero = 21;
+	•	Linkage externo (por defecto).
+	•	Puede ser “visto” desde otros archivos si se hace extern int numero;.
+	•	Existe durante toda la ejecución.
+	2.	static int numero = 10;
+	•	Linkage interno. Esta variable global es solo visible dentro de este archivo (este translation unit).
+	•	También existe durante toda la ejecución, pero no puede ser referenciada desde otros .c.
+
+⸻
+
+Resumen de diferencias
+	1.	Variable local automática (int numero = 21; dentro de la función):
+	•	Ámbito: solo dentro de la función.
+	•	Duración: solo mientras se ejecuta la función.
+	2.	Variable local estática (static int numero = 21; dentro de la función):
+	•	Ámbito: solo dentro de la función.
+	•	Duración: todo el programa (conserva valor entre llamadas).
+	3.	Variable global (sin static) (int numero; fuera de funciones):
+	•	Ámbito: en todo el programa (si se declara extern en otros archivos).
+	•	Duración: todo el programa.
+	•	Linkage externo: se puede compartir entre distintos archivos.
+	4.	Variable global estática (static int numero; fuera de funciones):
+	•	Ámbito: global pero solo en el archivo donde se declara.
+	•	Duración: todo el programa.
+	•	Linkage interno: no se puede compartir con otros archivos.
+	5.	extern int numero;:
+	•	No define la variable, solo declara que existe en otro lugar.
+	•	Se usa para “conectar” con la definición real (por ejemplo, int numero = 21; en otro archivo).
+
+En definitiva, las diferencias radican en:
+	•	Dónde se declara la variable (dentro o fuera de la función).
+	•	Si se usa o no la palabra clave static.
+	•	Si se usa extern para indicar que la variable está definida en otro lado.
+	•	El tiempo de vida (duración) de la variable (automática vs. estática).
+	•	La visibilidad (ámbito) y la vinculación (linkage) entre archivos.
