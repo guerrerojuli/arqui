@@ -1,0 +1,300 @@
+
+El programa en C
+
+#include <stdio.h>
+
+int calculo(int param1, int param2, char tipo){
+    int resul;
+
+    if(tipo == 's')
+        resul = param1 + param2;
+    else
+        resul = param1 * param2;
+
+    return resul;
+}
+
+int main(void){
+    int valor1 = 7;
+    int valor2 = 3;
+    char operacion;
+
+    printf("Ingrese tipo de operacion: 's' suma y 'm' multiplicar:\n");
+    scanf("%c", &operacion);
+
+    printf("Resultado: %d\n", calculo(valor1, valor2, operacion));
+    return 0;
+}
+
+Convención de llamadas (cdecl)
+	•	Los parámetros se pasan en la pila (el primer parámetro queda en EBP+8, el segundo en EBP+12, etc.).
+	•	La dirección de retorno se almacena en EBP+4.
+	•	Al entrar en una función, se hace un prólogo típico:
+
+push ebp
+mov  ebp, esp
+sub  esp, <tamaño>   ; para variables locales
+
+
+	•	Al salir, se hace el epílogo (inverso del prólogo) y se ejecuta ret <bytes> (o ret si el llamador limpia la pila).
+	•	El valor de retorno se coloca en EAX.
+
+⸻
+
+1. Dibujo de la Pila paso a paso
+
+A continuación, se muestra el contenido de la pila (stack) durante la ejecución, desde que se llama a main hasta que termina el programa. Para simplificar, no se mostrarán los marcos de pila internos del sistema (como la llamada a __libc_start_main, etc.), sino a partir de la llamada a main.
+
+⸻
+
+1.1. Llamada a main
+
+En tiempo de ejecución, algo así ocurre:
+
+call main
+
+Cuando se entra a main, se ejecuta su prólogo:
+
+push ebp       ; (1) Guardamos EBP
+mov  ebp, esp  ; (2) EBP apunta a tope actual de la pila
+sub  esp, X    ; (3) Reserva espacio para las variables locales
+
+En main, tenemos tres variables locales:
+
+int valor1 = 7;
+int valor2 = 3;
+char operacion;
+
+Supongamos que el compilador reserva 12 bytes (4 para valor1, 4 para valor2, 1 para operacion y quizá 3 de relleno/padding para alinear). El orden exacto puede variar, pero imaginemos algo así:
+	•	[EBP-4] → valor2
+	•	[EBP-8] → valor1
+	•	[EBP-12] → operacion (y tal vez 3 bytes no usados de padding)
+
+Diagrama inicial (después del prólogo de main):
+
+                 ... 
+                 [ Stack más alto ] 
+                 ... 
+[EBP+4]  →  Dirección de Retorno a quien llamó a main
+[EBP   ]  →  Old EBP (guardado)
+---------------------------------
+[EBP-4]  →  valor2 (3)
+[EBP-8]  →  valor1 (7)
+[EBP-12] →  operacion (1 byte) + (3 bytes de relleno)
+[ESP   ] →  tope actual (después de reservar 12 bytes)
+
+El compilador pondrá los valores iniciales valor1 = 7, valor2 = 3 en memoria o en registros, pero conceptualmente, ya tenemos:
+	•	valor1 = 7
+	•	valor2 = 3
+	•	operacion (todavía sin valor hasta que se ejecute scanf).
+
+⸻
+
+1.2. Llamadas a printf y scanf
+
+Dentro de main, se hace:
+
+printf("Ingrese tipo de operacion: 's' suma y 'm' multiplicar:\n");
+
+Al llamar a printf, se pasan parámetros en la pila:
+	1.	Se empuja la dirección de la cadena "Ingrese tipo..." (el primer y único parámetro).
+	2.	Se hace call printf.
+	3.	printf internamente usará su propio frame, imprime, y al volver, la pila vuelve al estado anterior.
+
+Luego se hace:
+
+scanf("%c", &operacion);
+
+Se pasan dos parámetros a scanf:
+	1.	Se empuja la dirección de "%c".
+	2.	Se empuja la dirección de operacion (algo como lea eax, [ebp-12] y luego push eax).
+	3.	call scanf.
+
+Tras terminar, en operacion ( [EBP-12] ) quedará el carácter que el usuario ingresó, 's' o 'm'.
+
+Estas llamadas no las dibujamos con mucho detalle, pero conceptualmente cada call crea un pequeño marco en la pila, y al retornar se limpia. El contenido local (valor1, valor2, operacion) no cambia excepto por operacion que se llena con el valor leído.
+
+⸻
+
+1.3. Llamada a calculo(valor1, valor2, operacion)
+
+Finalmente:
+
+printf("Resultado: %d\n", calculo(valor1, valor2, operacion));
+
+Primero se evalúan los parámetros de calculo. Se pasa valor1, valor2, operacion en la pila (en ese orden, cdecl). Asumiendo que valor1 = 7, valor2 = 3 y operacion = 's' (por ejemplo). El compilador haría algo como:
+
+mov   eax, [ebp-12]     ; eax = operacion
+push  eax               ; param3 (tipo)  (char 's')
+mov   eax, [ebp-4]      ; eax = valor2 (3)
+push  eax               ; param2
+mov   eax, [ebp-8]      ; eax = valor1 (7)
+push  eax               ; param1
+call  calculo
+
+Justo antes del call, la pila se ve así:
+
+                 ... 
+[EBP+4]  →  Ret. a quien llamó a main
+[EBP   ]  →  Old EBP
+[EBP-4]  →  valor2 (3)
+[EBP-8]  →  valor1 (7)
+[EBP-12] →  operacion (ej: 's')
+                 ...
+                 (variables locales de main)
+-------------------------------------------
+[ESP] ->   param1 = 7
+           param2 = 3
+           param3 = 's'
+           Ret. a la instr. después del call calculo
+
+Cuando se ejecuta call calculo, el procesador empuja la dirección de retorno para volver a main.
+Después, dentro de calculo, se hace el prólogo:
+
+push ebp
+mov  ebp, esp
+sub  esp, 4   ; por ejemplo, 4 bytes para la variable local 'resul'
+
+El stack frame de calculo (en x86, 32 bits) queda:
+
+             (Frame de calculo)
+[EBP+8]  →  param1 = 7
+[EBP+12] →  param2 = 3
+[EBP+16] →  tipo   = 's'
+[EBP+4]  →  Retorno a main (después de call calculo)
+[EBP   ]  →  Old EBP (de main)
+[EBP-4]  →  resul (variable local)
+
+El contenido de la pila en ese instante:
+
+                 ... (Frame de main)
+--------------------------------------
+(variables locales de main: valor1, valor2, operacion)
+--------------------------------------
+        param1 (7)
+        param2 (3)
+        param3 ('s')
+        RetAddr a main
+        Old EBP (de main)
+[EBP-4] → resul
+[ESP]   → (después de sub esp,4)
+
+
+
+⸻
+
+1.4. Dentro de calculo
+
+En C:
+
+if (tipo == 's')
+    resul = param1 + param2;
+else
+    resul = param1 * param2;
+
+return resul;
+
+	•	El compilador tomará param1 de [EBP+8], param2 de [EBP+12], y tipo de [EBP+16].
+	•	Según si tipo es 's' o 'm', calcula la operación y la guarda en [EBP-4] (resul).
+	•	Al final, hace return resul; → el valor se pasa a EAX.
+
+Supongamos que tipo == 's', entonces resul = 7 + 3 = 10.
+
+Se coloca 10 en [EBP-4]. Luego, antes de retornar:
+
+mov  eax, [ebp-4]  ; EAX = resul = 10
+
+Epílogo de calculo:
+
+mov  esp, ebp
+pop  ebp
+ret  12     ; Limpia los 12 bytes (3 parámetros x 4 bytes c/u)
+
+Ese ret 12 hace que se “salte” a la dirección de retorno (la que está en [EBP+4]) y, además, hace add esp, 12 para descartar los 3 parámetros que se habían empujado.
+Así, al terminar, EAX = 10 (el resultado).
+
+⸻
+
+1.5. Vuelta a main
+
+Al volver a main, la ejecución retoma en:
+
+printf("Resultado: %d\n", calculo(valor1, valor2, operacion));
+
+pero ahora ya tiene el valor de calculo(...) en EAX, que pasa a printf como argumento.
+En realidad, el compilador genera algo así (en pseudocódigo asm):
+
+; EAX = 10
+push eax                ; param2: el valor a imprimir
+push offset "Resultado: %d\n"  ; param1: la cadena
+call printf
+add esp, 8             ; Limpia los parámetros
+
+Nuevamente, printf crea su propio frame y al retornar, la pila se restaura al estado en main. Finalmente, main hace su epílogo y ret, volviendo al sistema.
+
+⸻
+
+1.6. Resumen Visual de la Pila
+
+Para un resumen condensado (sin todos los detalles de printf y scanf), enfocándonos en la llamada a calculo, quedaría así:
+
+Antes de llamar a calculo(7,3,'s'):
+
+            (Frame de main)
+ ┌─────────────────────────┐
+ │  ...                    │
+ │  valor2 = 3  (EBP-4)    │
+ │  valor1 = 7  (EBP-8)    │
+ │  operacion='s'(EBP-12)  │
+ ├─────────────────────────┤
+ │  param1=7               │  (se hace push 7)
+ │  param2=3               │  (se hace push 3)
+ │  param3='s'             │  (se hace push 's')
+ │  RetAddr -> main(...)   │  (automáticamente push al hacer call)
+[ESP] ----------------------
+
+Dentro de calculo:
+
+            (Frame de calculo)
+ ┌─────────────────────────┐
+ │ param1 = 7   (EBP+8)    │
+ │ param2 = 3   (EBP+12)   │
+ │ tipo   = 's' (EBP+16)   │
+ │ RetAddr a main(EBP+4)   │
+ │ Old EBP (EBP)           │
+ ├─────────────────────────┤
+ │ resul (EBP-4)           │
+ └─────────────────────────┘
+
+Después del ret 12, volvemos a main, y en EAX queda el resultado (10).
+
+⸻
+
+2. Registros del microprocesador involucrados
+
+Los registros principales que intervienen son:
+	1.	EBP (Base Pointer):
+	•	Se usa para armar el marco de pila (stack frame).
+	•	En cada función se hace push ebp; mov ebp, esp; al inicio.
+	•	Permite acceder a parámetros en [EBP+8], [EBP+12], etc., y a variables locales en [EBP-4], [EBP-8], etc.
+	2.	ESP (Stack Pointer):
+	•	Apunta siempre al “tope” de la pila.
+	•	Al entrar a una función, se modifica (sub esp, X) para reservar espacio local.
+	•	Al salir, se restablece (mov esp, ebp).
+	3.	EAX:
+	•	Se usa para el valor de retorno de las funciones en C.
+	•	Por ejemplo, en calculo, el resultado final se mueve a EAX antes de ret.
+	4.	(Opcionalmente) EBX, ECX, EDX:
+	•	El compilador puede usar estos registros para operaciones intermedias, por ejemplo para sumas, multiplicaciones o manipulación de parámetros.
+	5.	EIP (Instruction Pointer)** no se maneja directamente en el código, pero es modificado al hacer call y ret.
+
+Para la explicación principal, EBP, ESP, EAX son los más relevantes para entender el flujo en la pila y el retorno de valores.
+
+⸻
+
+Conclusión
+	1.	La pila en cada llamada sigue el esquema cdecl: parámetros empujados (en orden inverso), dirección de retorno, prólogo que guarda EBP y reserva locales.
+	2.	Las variables locales (valor1, valor2, operacion, resul) se ubican en direcciones negativas respecto de EBP.
+	3.	Los parámetros se ubican en [EBP+8], [EBP+12], [EBP+16], etc.
+	4.	Los registros principales que intervienen son EBP y ESP (para el stack frame), y EAX (para el valor de retorno).
+
