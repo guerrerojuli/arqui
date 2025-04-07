@@ -1,0 +1,286 @@
+⸻
+
+Paso 1: Al entrar en main
+
+Antes de ejecutar cualquier instrucción, la pila es (simplificado):
+
+    +-----------------+  <- Dirección S₀ (0x1000)
+    |     ...         |
+    +-----------------+
+
+
+
+⸻
+
+Paso 2: push ebp
+
+Se guarda el valor original de EBP.
+
+    +-----------------+  <- Dirección S₀ - 4 (0x0FFC): Antiguo EBP
+    |  EBP original   |
+    +-----------------+
+    |     ...         |  <- Dirección S₀ (0x1000) (contenido anterior)
+    +-----------------+
+
+Ahora, ESP = S₀ – 4.
+
+⸻
+
+Paso 3: mov ebp, esp
+
+Se copia ESP en EBP.
+Marco de pila (frame) de main:
+	•	EBP = S₀ – 4
+
+(No hay cambio en el contenido de la pila, solo se actualiza EBP.)
+
+⸻
+
+Paso 4: and esp, -16
+
+Se alinea ESP a un múltiplo de 16.
+Por ejemplo, si S₀ – 4 = 0x0FFC, la alineación lo baja a 0x0FF0.
+
+    +-----------------+  <- Dirección 0x0FFC: EBP original (guardado)
+    |  EBP original   |
+    +-----------------+
+       ...
+    +-----------------+  <- Dirección 0x0FF0 (nuevo ESP, alineado)
+
+
+
+⸻
+
+Paso 5: sub esp, 32
+
+Reserva 32 bytes para variables locales.
+Si ESP pasa de 0x0FF0 a 0x0FF0 – 32 = 0x0FD0, la pila queda:
+
+  [Zona de variables locales de main] (32 bytes)
+    +---------------------------+  <- 0x0FD0 (ESP tras reserva)
+    |   Variables locales       |  <-- 32 bytes (incluye la cadena)
+    +---------------------------+  <- 0x0FF0 (ESP alineado antes de la reserva)
+    |  EBP original (guardado)  |  <- 0x0FFC
+    +---------------------------+
+    |         ...               |
+
+Dentro de estos 32 bytes se almacenará la cadena “Hello World\n” a partir del offset 19 (relativo al inicio de la reserva).
+
+⸻
+
+Paso 6: Escribir la cadena “Hello World\n”
+
+Se almacenan datos en offsets dentro de la zona local.
+Por ejemplo, imaginemos que el inicio de la cadena es en ESP+19 (0x0FD0 + 19).
+El contenido se reparte así (no mostramos cada byte, solo la idea):
+
+    +---------------------------+  <- 0x0FD0 (inicio de variables locales)
+    | ...                       |
+    | [0x0FD0+19]: 'H' ...       |  <-- "Hello World\n" se escribe aquí
+    | ...                       |
+    +---------------------------+  <- 0x0FF0
+
+
+
+⸻
+
+Paso 7: Preparar argumento y llamar a magia
+
+a) Preparar el argumento
+
+Se ejecuta:
+
+lea eax, [esp+19]   ; EAX = dirección de la cadena
+mov DWORD PTR [esp], eax ; Se coloca ese puntero en [ESP]
+
+La pila ahora (zona local) contiene, en su parte baja, el argumento para magia:
+
+    +---------------------------+  <- 0x0FD0 (ESP)
+    | Argumento: dirección ->   |  <-- (puntero a la cadena en 0x0FD0+19)
+    +---------------------------+
+    | ... (resto de variables)  |
+    +---------------------------+  <- 0x0FF0
+    |  EBP original             |  <- 0x0FFC
+
+b) call magia
+
+La instrucción call empuja la dirección de retorno (la instrucción siguiente al call) sobre la pila.
+La pila pasa a:
+
+    +---------------------------+  <- Dirección (RET) (guardada por CALL)
+    |  Dirección de retorno     |
+    +---------------------------+
+    | Argumento (puntero a la   |
+    |   cadena en 0x0FD0+19)      |  <- 0x0FD0 (original ESP de main)
+    +---------------------------+
+    | ... (resto de variables)  |
+    +---------------------------+
+    |  EBP original             |  <- 0x0FFC
+
+ESP se ajusta al nuevo valor (menor en dirección).
+
+⸻
+
+Paso 8: Al entrar en la función magia
+
+Dentro de magia, al inicio se realiza:
+
+a) push ebp
+
+Guarda el EBP del frame de main.
+
+    +---------------------------+  <- Nueva dirección: ESP - 4 (guardado EBP de main)
+    |  EBP de main              |
+    +---------------------------+
+    |  Dirección de retorno     |
+    +---------------------------+
+    |  Argumento (puntero a la   |
+    |   cadena)                 |  
+    +---------------------------+
+    | ... (resto de main)       |
+
+b) mov ebp, esp
+
+Establece EBP en el valor actual (nuevo tope del frame de magia).
+
+Ahora, EBP apunta al valor donde se guardó el EBP de main.
+
+c) sub esp, 16
+
+Reserva 16 bytes para variables locales de magia.
+ESP se baja 16 bytes.
+
+El nuevo frame de magia es:
+
+    +---------------------------+  <- ESP actual de magia (EBP - 16)
+    | Variables locales (16 B)  |  <-- Usadas para, por ejemplo, almacenar temporalmente un char
+    +---------------------------+  <- EBP (guardado EBP de main)
+    |  EBP de main              |
+    +---------------------------+
+    |  Dirección de retorno     |
+    +---------------------------+
+    |  Argumento (puntero a la   |
+    |   cadena)                 |
+    +---------------------------+
+    | ... (resto de main)       |
+
+En este frame:
+	•	[EBP+8] contiene el argumento (puntero a la cadena).
+	•	La zona desde [EBP-16] hasta [EBP-1] se utiliza para variables locales (por ejemplo, para almacenar el carácter temporal).
+
+⸻
+
+Paso 9: Proceso del bucle en magia
+
+Durante la ejecución del bucle, se van realizando operaciones sobre el contenido de la cadena a través del puntero que está en [EBP+8] y se usan las variables locales en [EBP-1] para convertir cada carácter a mayúscula.
+Cada iteración, el puntero (almacenado en [EBP+8]) se incrementa.
+El resto del stack en magia no se modifica en la estructura, sólo el contenido de la zona apuntada por [EBP+8] cambia (la dirección que apunta la cadena se va actualizando).
+
+El diagrama permanece similar, pero conceptualmente, el puntero en [EBP+8] avanza:
+
+    +---------------------------+  <- ESP (EBP-16)
+    | Variables locales (16 B)  |
+    |  (incluye [EBP-1])        |  <-- Lugar temporal para el char
+    +---------------------------+  <- EBP (nuevo frame de magia)
+    |  EBP de main              |
+    +---------------------------+
+    |  Dirección de retorno     |
+    +---------------------------+
+    |  Argumento (puntero a la   |  <-- [EBP+8]: cambia con cada iteración
+    |   cadena; se incrementa)  |
+    +---------------------------+
+    | ... (resto del stack de main)  |
+
+
+
+⸻
+
+Paso 10: Salida de magia con leave y ret
+
+Al finalizar magia, se ejecuta leave, que realiza:
+	•	ESP := EBP (descarta los 16 bytes de variables locales)
+	•	pop ebp: Recupera el EBP de main
+
+Entonces, el frame de magia se elimina:
+
+Antes de leave:
+
+    [Frame de magia]
+    +---------------------------+  <- ESP (EBP-16)
+    | Variables locales (16 B)  |
+    +---------------------------+  <- EBP (de magia)
+    |  EBP de main              |
+    +---------------------------+
+    |  Dirección de retorno     |
+    +---------------------------+
+    |  Argumento (puntero a la   |
+    |   cadena; ya modificada)   |
+    +---------------------------+
+
+Después de leave y ret, se restaura la pila del frame de main:
+
+    [Frame de main, restaurado]
+    +---------------------------+  <- ESP (en main, vuelve a ser 0x0FD0)
+    | Argumento (puntero a la   |
+    |   cadena)                 |  
+    +---------------------------+
+    | ... (variables locales de main) |
+    +---------------------------+
+    |  EBP original             |  <- Se recupera al hacer leave en main
+    +---------------------------+
+
+El puntero a la cadena ahora apunta a la zona donde se encuentra la cadena modificada a mayúsculas.
+
+⸻
+
+Paso 11: Regreso a main y llamada a printf
+
+De vuelta en main, se utiliza el puntero a la cadena para llamar a printf.
+La pila de main luce así:
+
+    +---------------------------+  <- ESP de main (0x0FD0)
+    | Argumento para printf:    |  <-- Puntero a la cadena modificada (obtenido con lea)
+    +---------------------------+
+    | ... (resto de variables locales, incluida la cadena) |
+    +---------------------------+
+    |  EBP de main (original)   |  <- Guardado al inicio de main
+    +---------------------------+
+
+Luego, tras printf y al finalizar main se ejecuta leave que restaura la pila al estado previo a main.
+
+⸻
+
+Resumen Visual Final
+
+Antes de llamar a magia (dentro de main):
+
+      0x0FD0  -->  [ Argumento: puntero a "Hello World\n" ]
+      ...     -->  [ Resto de variables locales (cadena y otros) ]
+      0x0FF0  -->  [ Fin de variables locales ]
+      0x0FFC  -->  [ EBP original (guardado con push ebp) ]
+      0x1000  -->  [ Estado anterior de la pila ]
+
+Dentro de magia (tras establecer el frame y reservar 16 bytes):
+
+      ESP (EBP-16)
+         |
+         v
+      +------------------+  <-- Variables locales de magia (16 bytes)
+      | (incluye [EBP-1])|
+      +------------------+  <-- EBP (nuevo frame de magia)
+      |  EBP de main     |
+      +------------------+
+      | Dirección retorno|  <-- Empujada por call
+      +------------------+
+      | Argumento        |  <-- [EBP+8]: puntero a la cadena (se incrementa)
+      +------------------+
+      | ... (main)       |
+
+Después de salir de magia y al volver a main:
+
+      0x0FD0  -->  [ Argumento: puntero a "HELLO WORLD\n" ]
+      ...     -->  [ Variables locales de main (incluyendo la cadena modificada) ]
+      0x0FF0  -->  [ Fin de variables locales ]
+      0x0FFC  -->  [ EBP original de main ]
+
+Cada paso ilustra cómo se van agregando y retirando elementos de la pila, mostrando claramente la creación y destrucción de los frames de las funciones.
