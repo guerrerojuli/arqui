@@ -63,7 +63,7 @@ for SRC_FILE in "$@"; do
       ;;
     c)
       echo "Compiling $SRC_FILE -> $OBJ_FILE"
-      gcc -m32 -fno-builtin -c "$SRC_FILE" -o "$OBJ_FILE"
+      gcc -m32 -c "$SRC_FILE" -o "$OBJ_FILE"
       OBJ_FILES+=("$OBJ_FILE")
       ;;
     *)
@@ -76,4 +76,4 @@ done
 echo "Linking object files into bin/$BIN_NAME..."
 gcc -m32 -no-pie "${OBJ_FILES[@]}" -o "bin/${BIN_NAME}"
 
-echo "Build complete. Run ./bin/${BIN_NAME} to execute."
+echo "Build complete. Run bin/${BIN_NAME} to execute."
