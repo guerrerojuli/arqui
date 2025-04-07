@@ -1,0 +1,121 @@
+1. ¿Cómo se pasan las estructuras entre funciones?
+
+En C, puedes pasar una estructura de dos formas:
+
+a) Por copia
+
+Cuando pasas una estructura directamente como argumento (por valor), se copia completamente en la pila.
+En ASM x86 (32 bits), verás que:
+	•	Se reservan bytes en la pila con sub esp, X (donde X es el tamaño de la estructura).
+	•	Se usa mov o push para pasar cada campo o la estructura entera.
+	•	La función llamada recibe una copia, los cambios no afectan al original.
+
+b) Por referencia
+
+Cuando pasas un puntero a la estructura, solo se pasa la dirección de memoria.
+En ASM x86:
+	•	Solo verás un push con la dirección (lea o un registro que contiene el puntero).
+	•	Los cambios sí afectan al original, ya que se modifica la memoria apuntada.
+
+⸻
+
+2. ¿Cuál es la diferencia entre pasar por referencia y por copia?
+
+Aspecto	            Por copia	                            Por referencia
+ASM generado	      Copia cada campo; más instrucciones	  Solo pasa un puntero (4 bytes)
+Eficiencia	        Más lento y más uso de pila	          Más rápido y menos uso de pila
+Efectos laterales	  No modifica la estructura original	  Puede modificar la estructura original
+
+
+
+⸻
+
+3. ¿Cómo es el retorno de una estructura?
+
+a) Si se retorna por copia:
+	•	La función coloca el resultado en una dirección de memoria pasada implícitamente (oculto por el compilador).
+	•	En ASM, a veces se pasa un puntero como primer parámetro extra donde se coloca el return.
+
+b) Si se retorna un puntero (por referencia):
+	•	Simplemente se retorna la dirección (eax contiene el puntero al struct).
+
+⸻
+
+Estructura de ejemplo en C
+
+typedef struct {
+    int x;
+    int y;
+} Punto;
+
+
+
+⸻
+
+Caso 1: Pasar estructura por copia
+
+C
+
+void moverPorCopia(Punto p) {
+    p.x += 1;
+    p.y += 1;
+}
+
+ASM x86 (32 bits simplificado)
+
+Asumiendo que Punto ocupa 8 bytes (dos int), y que estamos usando la convención cdecl:
+
+; moverPorCopia recibe la estructura en la pila (por valor)
+
+moverPorCopia:
+    push ebp
+    mov ebp, esp
+
+    ; p.x está en [ebp+8], p.y en [ebp+12]
+    mov eax, [ebp+8]     ; eax = p.x
+    add eax, 1
+    mov [ebp+8], eax     ; p.x += 1
+
+    mov eax, [ebp+12]    ; eax = p.y
+    add eax, 1
+    mov [ebp+12], eax    ; p.y += 1
+
+    pop ebp
+    ret
+
+Aquí ves que se accede directamente a la copia local de la estructura en la pila. Cualquier cambio NO afecta al original.
+
+⸻
+
+Caso 2: Pasar estructura por referencia
+
+C
+
+void moverPorReferencia(Punto *p) {
+    p->x += 1;
+    p->y += 1;
+}
+
+ASM x86 (32 bits simplificado)
+
+; moverPorReferencia recibe un puntero a la estructura
+
+moverPorReferencia:
+    push ebp
+    mov ebp, esp
+
+    mov eax, [ebp+8]     ; eax = p
+
+    mov edx, [eax]       ; edx = p->x
+    add edx, 1
+    mov [eax], edx       ; p->x += 1
+
+    mov edx, [eax+4]     ; edx = p->y
+    add edx, 1
+    mov [eax+4], edx     ; p->y += 1
+
+    pop ebp
+    ret
+
+En este caso, solo se pasa un puntero (4 bytes). Se accede a los datos a través del puntero, modificando el original.
+
