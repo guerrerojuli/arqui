@@ -1,0 +1,13 @@
+        ┌─────────────────────┐
+[ESP] → │ Viejo EBP           │  <-- ESP apunta aquí (nuevo top)  
+        ├─────────────────────┤
+        │ Dirección de Retorno│  <-- [EBP + 4] (luego se accede como tal)
+        ├─────────────────────┤
+        │ Parámetro 1         │  <-- [EBP + 8]
+        ├─────────────────────┤
+        │ Parámetro 2         │  <-- [EBP + 12]
+        ├─────────────────────┤
+        │ Parámetro 3         │  <-- [EBP + 16]
+        ├─────────────────────┤
+        │ Parámetro 4         │  <-- [EBP + 20]
+        └─────────────────────┘
