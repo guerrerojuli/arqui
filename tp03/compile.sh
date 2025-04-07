@@ -1,79 +1,98 @@
 #!/usr/bin/env bash
 
 # Script: build.sh
-# Usage: ./build.sh [-o output_binary] file1.asm file2.c file3.asm ...
+# Uso: ./build.sh [-o output_binary] [-a 32|64] file1.asm file2.c file3.asm ...
 #
-# This script compiles assembly (.asm) and C (.c) files into object files,
-# storing them in the "out/" directory, then links them into a binary
-# stored in the "bin/" directory. If no output binary name is provided with -o,
-# the default name "program" is used.
+# Este script compila archivos de ensamblador (.asm) y C (.c) en archivos objeto,
+# almacenándolos en el directorio "out/", y luego los enlaza en un binario
+# almacenado en el directorio "bin/". Si no se proporciona un nombre de salida con -o,
+# se utiliza "program" por defecto. Por defecto compila para 32 bits, pero se puede
+# cambiar a 64 bits con la opción -a.
 
-# Exit immediately if any command fails.
+# Salir inmediatamente si algún comando falla.
 set -e
 
-# Default binary name
+# Nombre binario por defecto
 BIN_NAME="program"
+# Arquitectura por defecto
+ARCH="32"
 
-# Process optional output binary name (-o)
-while getopts "o:" opt; do
+# Procesar opciones: -o para el nombre del binario, -a para la arquitectura (32 o 64)
+while getopts "o:a:" opt; do
   case $opt in
     o)
       BIN_NAME="$OPTARG"
       ;;
+    a)
+      if [ "$OPTARG" != "32" ] && [ "$OPTARG" != "64" ]; then
+        echo "La arquitectura debe ser 32 o 64."
+        exit 1
+      fi
+      ARCH="$OPTARG"
+      ;;
     *)
-      echo "Usage: $0 [-o output_binary] file1.asm file2.c ..."
+      echo "Uso: $0 [-o output_binary] [-a 32|64] file1.asm file2.c ..."
       exit 1
       ;;
   esac
 done
 
-# Shift out the processed options
+# Eliminar las opciones procesadas
 shift $((OPTIND - 1))
 
-# Ensure at least one source file is provided
+# Verificar que se haya proporcionado al menos un archivo fuente
 if [ $# -lt 1 ]; then
-  echo "Usage: $0 [-o output_binary] file1.asm file2.c ..."
+  echo "Uso: $0 [-o output_binary] [-a 32|64] file1.asm file2.c ..."
   exit 1
 fi
 
-# Create directories for object files and binary if they don't exist
+# Crear directorios para archivos objeto y el binario si no existen
 mkdir -p out bin
 
-# Array to hold the object file paths
+# Array para almacenar las rutas de los archivos objeto
 OBJ_FILES=()
 
-# Iterate over each provided source file
+# Determinar las banderas y formato según la arquitectura
+if [ "$ARCH" = "64" ]; then
+  NASM_FORMAT="elf64"
+  GCC_FLAG="-m64"
+else
+  NASM_FORMAT="elf32"
+  GCC_FLAG="-m32"
+fi
+
+# Procesar cada archivo fuente proporcionado
 for SRC_FILE in "$@"; do
-  # Check if the file exists
+  # Comprobar si el archivo existe
   if [ ! -f "$SRC_FILE" ]; then
-    echo "File not found: $SRC_FILE"
+    echo "Archivo no encontrado: $SRC_FILE"
     continue
   fi
 
-  # Determine file extension and base name
+  # Determinar la extensión y el nombre base
   EXT="${SRC_FILE##*.}"
   BASENAME=$(basename "$SRC_FILE" ."$EXT")
   OBJ_FILE="out/${BASENAME}.o"
 
   case "$EXT" in
     asm)
-      echo "Assembling $SRC_FILE -> $OBJ_FILE"
-      nasm -f elf32 "$SRC_FILE" -o "$OBJ_FILE"
+      echo "Ensamblando $SRC_FILE -> $OBJ_FILE"
+      nasm -f "$NASM_FORMAT" "$SRC_FILE" -o "$OBJ_FILE"
       OBJ_FILES+=("$OBJ_FILE")
       ;;
     c)
-      echo "Compiling $SRC_FILE -> $OBJ_FILE"
-      gcc -m32 -c "$SRC_FILE" -o "$OBJ_FILE"
+      echo "Compilando $SRC_FILE -> $OBJ_FILE"
+      gcc "$GCC_FLAG" -c "$SRC_FILE" -o "$OBJ_FILE"
       OBJ_FILES+=("$OBJ_FILE")
       ;;
     *)
-      echo "Skipping unknown file type: $SRC_FILE"
+      echo "Omitiendo archivo de tipo desconocido: $SRC_FILE"
       ;;
   esac
 done
 
-# Link all object files into the final binary
-echo "Linking object files into bin/$BIN_NAME..."
-gcc -m32 -no-pie "${OBJ_FILES[@]}" -o "bin/${BIN_NAME}"
+# Enlazar todos los archivos objeto en el binario final
+echo "Enlazando archivos objeto en bin/$BIN_NAME..."
+gcc "$GCC_FLAG" -no-pie "${OBJ_FILES[@]}" -o "bin/${BIN_NAME}"
 
-echo "Build complete. Run bin/${BIN_NAME} to execute."
+echo "Compilación completada. Ejecuta bin/${BIN_NAME} para iniciar el programa."
