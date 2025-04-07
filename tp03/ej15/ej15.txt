@@ -1,0 +1,285 @@
+A continuación se muestra la traza “a mano” de la pila, paso a paso, tal como se comporta el programa que aparece en la imagen.
+
+Nota: En este ejemplo se asume que el programa implementa el cálculo recursivo del factorial en ensamblador x86 (32 bits) utilizando la convención cdecl. Además, se supone que el programa reserva 4 bytes para una variable local en cada invocación (podría ser, por ejemplo, para almacenar temporalmente el valor de “n – 1”). También se parte de la llamada a factorial(n) (sin incluir el main).
+
+Utilizaremos el valor n = 3 para ilustrar la traza.
+
+⸻
+
+Suposición del código en ASM
+
+Aunque en la imagen aparecen las instrucciones exactas, asumiremos que el programa es similar a lo siguiente (comentado para identificar cada parte):
+
+factorial:                   ; Inicio de la función factorial
+    push    ebp             ; Guarda el EBP anterior
+    mov     ebp, esp        ; Nuevo marco de pila
+    sub     esp, 4          ; Reserva 4 bytes para variable local (por ejemplo, para almacenar n-1)
+
+    mov     eax, [ebp+8]    ; Carga el argumento n en EAX
+    cmp     eax, 1          ; Compara n con 1
+    je      fin_factorial   ; Si n == 1, salta a fin_factorial
+
+    dec     eax             ; Calcula n-1 (se podría almacenar en la variable local)
+    mov     [ebp-4], eax    ; Guarda n-1 en la variable local
+    push    eax             ; Pasa n-1 como parámetro
+    call    factorial       ; Llamada recursiva: factorial(n-1)
+
+    ; Al retornar, en EAX está factorial(n-1)
+    mov     ebx, [ebp+8]    ; Recupera el valor original de n
+    mul     ebx             ; EAX = EAX * n
+    jmp     restaura
+
+fin_factorial:
+    mov     eax, 1          ; Caso base: factorial(1) = 1
+
+restaura:
+    add     esp, 4          ; Limpia la variable local (o se usa leave)
+    pop     ebp             ; Restaura el EBP anterior
+    ret     4               ; Retorna y limpia el parámetro (n)
+
+Importante: La implementación exacta puede variar; sin embargo, en el diagrama se consideran los elementos que aparecen:
+	•	El parámetro (n) en [EBP+8]
+	•	La dirección de retorno en [EBP+4]
+	•	El EBP antiguo en [EBP]
+	•	El espacio para la variable local en [EBP-4]
+
+⸻
+
+Trazado de la Pila (Stack) con n = 3
+
+1. Llamada inicial a factorial(3)
+
+Antes de llamar a la función se hace:
+
+push 3         ; Empuja el argumento n=3
+call factorial ; Llama a la función
+
+Después del call, la pila contiene (de direcciones más altas a más bajas):
+
+         ... 
+         [   ?   ] ← Datos anteriores
+         [   3   ] ← Argumento n (en la posición [ESP] justo antes del call)
+         [RetAddr] ← Dirección de retorno (se empuja automáticamente al hacer call)
+
+Al ingresar a factorial(3), se ejecuta el prólogo:
+
+push ebp      ; Guarda el EBP anterior
+mov ebp, esp  ; EBP apunta ahora al tope de la pila
+sub esp, 4    ; Reserva 4 bytes para variable local
+
+La estructura del stack frame para factorial(3) queda así:
+
+            ↑ direcciones crecientes
+-------------------------------------
+[EBP+8]  →  3         (argumento n)
+[EBP+4]  →  RetAddr   (viene del call original)
+[EBP   ]  →  OldEBP    (EBP anterior, guardado con push)
+[EBP-4]  →  variable local (espacio reservado, se usará para n-1)
+-------------------------------------
+
+2. Dentro de factorial(3) y llamada a factorial(2)
+
+Se evalúa:
+
+cmp eax, 1     ; EAX contiene 3, no es 1, por lo que se entra en la parte recursiva
+
+Luego se hace:
+
+dec eax        ; eax = 3 - 1 = 2
+mov [ebp-4], eax  ; Guarda 2 en la variable local (n-1)
+push eax       ; Pasa 2 como argumento para la llamada recursiva
+call factorial ; Llama a factorial(2)
+
+Antes de la llamada recursiva, la pila (dentro del frame de factorial(3)) es:
+
+             (frame de factorial(3))
+--------------------------------------------
+[EBP+8]   →  3
+[EBP+4]   →  RetAddr_3   (dirección de retorno dentro de factorial(3))
+[EBP   ]   →  OldEBP_3
+[EBP-4]   →  2         (variable local: n-1)
+--------------------------------------------
+Ahora, se ejecuta: push 2
+
+La pila se actualiza (añadiendo el argumento para factorial(2)):
+
+             (Frame de factorial(3))
+--------------------------------------------
+[ ... ]
+[EBP-4]            →  2      (variable local de factorial(3))
+[ESP] (nuevo)      →  2      (argumento para factorial(2))
+
+Luego, el call factorial empuja la dirección de retorno para volver a factorial(3).
+
+Estructura en el momento de entrar a factorial(2) (justo después del call):
+
+        ... (datos anteriores)
+           ← Frame de factorial(3):
+[ ... ]
+[EBP+8]   →  3
+[EBP+4]   →  RetAddr_3
+[EBP   ]   →  OldEBP_3
+[EBP-4]   →  2      (variable local, n-1)
+--------------------------------------------
+Ahora, se tiene agregado en la pila:
+         [ 2 ]        ← argumento para factorial(2) (push anterior)
+         [RetAddr_3_in]  ← Dirección de retorno para volver a factorial(3)
+
+Al entrar a factorial(2) se ejecuta el prólogo:
+
+push ebp
+mov ebp, esp
+sub esp, 4   ; Reserva espacio para la variable local de factorial(2)
+
+Así, el stack frame de factorial(2) es:
+
+            ↑ direcciones crecientes
+-------------------------------------
+[EBP+8]  →  2         (argumento n para factorial(2))
+[EBP+4]  →  RetAddr_3_in   (dirección de retorno a factorial(3))
+[EBP   ]  →  OldEBP_2  (valor de EBP de factorial(3))
+[EBP-4]  →  variable local de factorial(2)
+-------------------------------------
+
+3. Dentro de factorial(2) y llamada a factorial(1)
+
+Se evalúa en factorial(2):
+
+mov eax, [ebp+8] ; eax = 2
+cmp eax, 1     ; 2 != 1, se procede a la parte recursiva
+
+Luego:
+
+dec eax           ; eax = 2 - 1 = 1
+mov [ebp-4], eax  ; Guarda 1 en la variable local (n-1)
+push eax          ; Pasa 1 como argumento para la llamada recursiva
+call factorial    ; Llama a factorial(1)
+
+Antes de llamar a factorial(1), el frame de factorial(2) luce así:
+
+            (Frame de factorial(2))
+---------------------------------------
+[EBP+8]   →  2
+[EBP+4]   →  RetAddr_3_in
+[EBP   ]   →  OldEBP_2
+[EBP-4]   →  1       (variable local: n-1)
+---------------------------------------
+
+Luego, se hace push 1 (argumento para factorial(1)) y se empuja la dirección de retorno del call, quedando:
+
+             (Frame de factorial(2))
+---------------------------------------
+[ ... ]
+[EBP+8]   →  2
+[EBP+4]   →  RetAddr_3_in
+[EBP   ]   →  OldEBP_2
+[EBP-4]   →  1
+---------------------------------------
+   Se añade:
+         [ 1 ]       ← argumento para factorial(1)
+         [RetAddr_2_in]  ← Dirección de retorno para factorial(2)
+
+Al entrar a factorial(1) se ejecuta el prólogo:
+
+push ebp
+mov ebp, esp
+sub esp, 4   ; Reserva espacio para variable local en factorial(1)
+
+El stack frame de factorial(1) queda:
+
+            ↑ direcciones crecientes
+-------------------------------------
+[EBP+8]  →  1         (argumento n para factorial(1))
+[EBP+4]  →  RetAddr_2_in   (dirección de retorno a factorial(2))
+[EBP   ]  →  OldEBP_1  (EBP de factorial(2))
+[EBP-4]  →  variable local de factorial(1)
+-------------------------------------
+
+4. Caso Base en factorial(1) y Retorno
+
+En factorial(1) se evalúa:
+
+cmp eax, 1  ; eax = 1, se cumple la condición
+je fin_factorial
+
+Por lo tanto se ejecuta:
+
+mov eax, 1    ; Se asigna el valor de retorno: 1
+
+Luego se realiza el epílogo:
+
+add esp, 4    ; Limpia la variable local (o se utiliza leave)
+pop ebp       ; Restaura el EBP antiguo
+ret 4         ; Retorna, liberando el argumento (n)
+
+Al retornar de factorial(1), la pila se restaura al frame de factorial(2). En ese frame, el valor 1 queda en EAX.
+
+5. Regreso a factorial(2) y Cálculo
+
+Tras el retorno, en factorial(2) se continúa con la multiplicación:
+
+mov ebx, [ebp+8] ; ebx = 2 (valor original de n)
+mul ebx          ; EAX = EAX * ebx  → EAX = 1 * 2 = 2
+
+Se ejecuta el epílogo de factorial(2) (limpiando su variable local, restaurando EBP y liberando el parámetro) y se retorna a factorial(3). Ahora en factorial(2) se retorna el valor 2 en EAX.
+
+6. Regreso a factorial(3) y Cálculo Final
+
+En factorial(3) se retoma la ejecución tras la llamada recursiva a factorial(2):
+
+; EAX contiene el resultado de factorial(2), es decir, 2
+mov ebx, [ebp+8] ; ebx = 3 (valor original de n)
+mul ebx          ; EAX = 2 * 3 = 6
+
+Finalmente se ejecuta el epílogo de factorial(3) y se retorna a quien llamó inicialmente a la función. El resultado final en EAX es 6 (3! = 6).
+
+⸻
+
+7. Diagrama Resumido de la Pila
+
+A modo de resumen, se muestra un diagrama “vertical” (de arriba a abajo, donde cada bloque corresponde a un stack frame):
+
+           ┌─────────────────────────────┐
+           │         FRAME MAIN          │
+           │  (Donde se llamó a factorial)│
+           └─────────────────────────────┘
+                   ↑
+                   │  (Retorno final con EAX=6)
+           ┌─────────────────────────────┐
+           │  FRAME factorial(3)         │
+           │-----------------------------│
+           │ [EBP+8]  →   3             │ ← parámetro n
+           │ [EBP+4]  →   RetAddr_3     │ ← retorno interno a factorial(3)
+           │ [EBP   ]  →   OldEBP_3      │
+           │ [EBP-4]  →   2             │ ← variable local (n-1)
+           └─────────────────────────────┘
+                   ↑
+                   │  (Retorno de factorial(2))
+           ┌─────────────────────────────┐
+           │  FRAME factorial(2)         │
+           │-----------------------------│
+           │ [EBP+8]  →   2             │
+           │ [EBP+4]  →   RetAddr_2_in  │ ← retorno interno a factorial(2)
+           │ [EBP   ]  →   OldEBP_2      │
+           │ [EBP-4]  →   1             │ ← variable local (n-1)
+           └─────────────────────────────┘
+                   ↑
+                   │  (Retorno de factorial(1))
+           ┌─────────────────────────────┐
+           │  FRAME factorial(1)         │
+           │-----------------------------│
+           │ [EBP+8]  →   1             │
+           │ [EBP+4]  →   RetAddr_1     │ ← retorno a factorial(2)
+           │ [EBP   ]  →   OldEBP_1      │
+           │ [EBP-4]  →   (local)       │ ← espacio reservado
+           └─────────────────────────────┘
+
+Cada vez que se realiza un call, se empuja el argumento (y luego la dirección de retorno). El prólogo de cada función establece el nuevo marco con push ebp y mov ebp, esp, y reserva espacio para las variables locales (con sub esp, 4). Al retornar, se restablece la pila al estado anterior.
+
+⸻
+
+Conclusión
+
+Este diagrama y explicación detallada muestran cómo se comporta la pila en cada paso del cálculo recursivo del factorial, tal como lo implementa el programa de la imagen, respetando la convención cdecl en x86 de 32 bits y considerando tanto el paso de parámetros como el uso de variables locales.
+
+Si tu imagen muestra detalles adicionales o ligeras variaciones en el código, el concepto general es el mismo: cada llamada crea un stack frame con el parámetro, la dirección de retorno, el EBP antiguo y el espacio para variables locales, y al retornar se restaura el estado previo de la pila.
