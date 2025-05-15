@@ -1,0 +1,17 @@
+#Binary Files
+*.bin
+*.sys
+
+#The images
+*.img
+*.qcow2
+*.vmdk
+
+#Object files
+*.o
+
+#Bash history from docker container
+.bash_history
+
+#Vscode
+.vscode
