@@ -133,7 +133,7 @@ int main()
 		if (tecla == '\b') {
 			nc_backspace();
 		} else if (tecla != 0) {
-			nc_print_styled_char(tecla, 0x0, 0x2);
+			nc_print_styled_char(tecla, 0xF, 0xD);
 		}
 	} while (tecla != '\n');
 

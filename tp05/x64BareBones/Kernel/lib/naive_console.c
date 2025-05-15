@@ -89,8 +89,8 @@ void nc_backspace() {
 	}
 
 	current_video -= 2; // Move back one character position (char + attribute)
-	*current_video = ' '; // Erase the character by writing a space
-	// Attribute byte *(current_video + 1) is left as is, or can be reset
+	*current_video = 0x00; // Erase the character 
+	*(current_video + 1) = 0x00; // Reset the attribute byte to black background
 }
 
 static uint32_t uint_to_base(uint64_t value, char * buffer, uint32_t base)
