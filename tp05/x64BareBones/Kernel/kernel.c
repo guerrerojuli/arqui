@@ -6,6 +6,8 @@
 #include <cpu_vendor.h>
 #include <clock.h>
 #include <input.h>
+#include <time.h>
+#include <idt_loader.h>
 
 extern uint8_t text;
 extern uint8_t rodata;
@@ -80,11 +82,18 @@ void * initialize_kernel_binary()
 	nc_print("[Done]");
 	nc_newline();
 	nc_newline();
+
 	return get_stack_base();
 }
 
 int main()
 {	
+
+	nc_print("[Loading IDT]");
+	load_idt();
+	nc_print("[Done]");
+	nc_newline();
+
 	nc_print("[Kernel Main]");
 	nc_newline();
 	nc_print("  Sample code module at 0x");
@@ -112,6 +121,7 @@ int main()
 
 
 	// Ejercicio 3
+	/*
 	char buffer[10];
 	get_time_string(buffer);
 	nc_print(buffer);
@@ -120,9 +130,10 @@ int main()
 	get_date_string(buffer);
 	nc_print(buffer);
 	nc_newline();
-
+	*/
 
 	// Ejercicio 4
+	/*
 	nc_newline();
 	nc_print("Escribe algo");
 	nc_newline();
@@ -136,6 +147,9 @@ int main()
 			nc_print_styled_char(tecla, 0xF, 0xD);
 		}
 	} while (tecla != '\n');
+	*/
+
+	while (1) ;
 
 	return 0;
 }

@@ -1,4 +1,4 @@
-GLOBAL time
+GLOBAL rtc
 
 extern bcd2bin
 
@@ -7,7 +7,7 @@ data_port equ 0x71
 
 section .text
 
-time:
+rtc:
   push rbp
   mov rbp, rsp
 

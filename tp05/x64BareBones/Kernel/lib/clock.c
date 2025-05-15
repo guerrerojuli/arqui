@@ -1,4 +1,4 @@
-#include <time.h>
+#include <rtc.h>
 #include <utils.h>
 #include <stdint.h>
 
@@ -14,38 +14,38 @@
 // Note: Add other registers if needed, e.g., status registers
 
 int get_seconds() {
-  return bcd_to_bin(time(RTC_SECONDS_REG));
+  return bcd_to_bin(rtc(RTC_SECONDS_REG));
 }
 
 int get_minutes() {
-  return bcd_to_bin(time(RTC_MINUTES_REG));
+  return bcd_to_bin(rtc(RTC_MINUTES_REG));
 }
 
 int get_hours() {
   // RTC might store hours in 12-hour or 24-hour format,
   // and might have a bit to indicate PM.
   // Assuming direct BCD conversion for now.
-  return bcd_to_bin(time(RTC_HOURS_REG));
+  return bcd_to_bin(rtc(RTC_HOURS_REG));
 }
 
 int get_day_of_week() {
-  return bcd_to_bin(time(RTC_DAY_OF_WEEK_REG)); // Sunday=1, ..., Saturday=7 or similar
+  return bcd_to_bin(rtc(RTC_DAY_OF_WEEK_REG)); // Sunday=1, ..., Saturday=7 or similar
 }
 
 int get_day() {
-  return bcd_to_bin(time(RTC_DAY_OF_MONTH_REG));
+  return bcd_to_bin(rtc(RTC_DAY_OF_MONTH_REG));
 }
 
 int get_month() {
-  return bcd_to_bin(time(RTC_MONTH_REG));
+  return bcd_to_bin(rtc(RTC_MONTH_REG));
 }
 
 int get_year() {
-  return bcd_to_bin(time(RTC_YEAR_REG)); // e.g., 23 for 2023
+  return bcd_to_bin(rtc(RTC_YEAR_REG)); // e.g., 23 for 2023
 }
 
 int get_century() {
-  return bcd_to_bin(time(RTC_CENTURY_REG)); // e.g., 20 for 20xx
+  return bcd_to_bin(rtc(RTC_CENTURY_REG)); // e.g., 20 for 20xx
 }
 
 
