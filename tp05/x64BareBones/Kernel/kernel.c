@@ -3,7 +3,6 @@
 #include <module_loader.h>
 #include <naive_console.h>
 #include <cpu_vendor.h>
-#include <input.h>
 #include <time.h>
 #include <idt_loader.h>
 #include <drivers/rtc.h>
@@ -116,8 +115,8 @@ int main()
 	nc_clear();
 
 	// Ejercicio 1
-	//nc_print_styled("Arquitectura de Computadores", 0xF, 0x2);
-
+	nc_print_styled("Arquitectura de Computadores", 0x0, 0x5);
+	nc_newline();
 
 	// Ejercicio 3
 	rtc_time_t time;
@@ -141,20 +140,7 @@ int main()
 	nc_newline();
 	
 	
-	// Ejercicio 4
-	nc_newline();
-	nc_print("Escribe algo");
-	nc_newline();
 
-	char tecla;
-	do {
-		tecla = get_char();
-		if (tecla == '\b') {
-			nc_backspace();
-		} else if (tecla != 0) {
-			nc_print_styled_char(tecla, 0xF, 0xD);
-		}
-	} while (tecla != '\n');
 
 	while (1) ;
 
