@@ -6,6 +6,7 @@
 #include <time.h>
 #include <idt_loader.h>
 #include <drivers/rtc.h>
+#include <interrupts.h>
 
 extern uint8_t text;
 extern uint8_t rodata;
@@ -138,11 +139,38 @@ int main()
 	nc_print("/");
 	nc_print_dec(date.year);
 	nc_newline();
+
+	/*
 	
 	
+	nc_print("Testing syscall write with int 80h...");
+	nc_newline();
+	
+	char test_message[] = "Hello from syscall write using int 80h!\n";
+	
+	// Using int 80h to call write syscall
+	// rax = syscall number (1 for write)
+	// rdi = file descriptor (2 for stderr)
+	// rsi = buffer address
+	// rdx = count
+	__asm__ __volatile__(
+		"mov $1, %%rax\n\t"    // syscall number for write
+		"mov $2, %%rdi\n\t"    // stderr file descriptor
+		"mov %0, %%rsi\n\t"    // buffer address
+		"mov %1, %%rdx\n\t"    // count
+		"int $0x80\n\t"        // trigger syscall
+		:
+		: "r" (test_message), "r" (sizeof(test_message) - 1)
+		: "rax", "rdi", "rsi", "rdx"
+	);
+	
+	nc_print("Syscall write test completed");
+	nc_newline();
+	*/
 
 
-	while (1) ;
+
+	_hlt();
 
 	return 0;
 }

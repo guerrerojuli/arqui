@@ -10,6 +10,8 @@
 
 #include <idt_loader.h>
 
+void _syscallHandler(void);
+
 void _irq00Handler(void);
 void _irq01Handler(void);
 void _irq02Handler(void);
