@@ -1,13 +1,12 @@
 #include <stdint.h>
 #include <string.h>
-#include <utils.h>
 #include <module_loader.h>
 #include <naive_console.h>
 #include <cpu_vendor.h>
-#include <clock.h>
 #include <input.h>
 #include <time.h>
 #include <idt_loader.h>
+#include <drivers/rtc.h>
 
 extern uint8_t text;
 extern uint8_t rodata;
@@ -121,19 +120,28 @@ int main()
 
 
 	// Ejercicio 3
-	/*
-	char buffer[10];
-	get_time_string(buffer);
-	nc_print(buffer);
+	rtc_time_t time;
+	rtc_get_time(&time);
+	nc_print("Hora: ");
+	nc_print_dec(time.hours);
+	nc_print(":");
+	nc_print_dec(time.minutes);
+	nc_print(":");
+	nc_print_dec(time.seconds);
 	nc_newline();
 
-	get_date_string(buffer);
-	nc_print(buffer);
+	rtc_date_t date;
+	rtc_get_date(&date);
+	nc_print("Fecha: ");
+	nc_print_dec(date.day);
+	nc_print("/");
+	nc_print_dec(date.month);
+	nc_print("/");
+	nc_print_dec(date.year);
 	nc_newline();
-	*/
-
+	
+	
 	// Ejercicio 4
-	/*
 	nc_newline();
 	nc_print("Escribe algo");
 	nc_newline();
@@ -147,7 +155,6 @@ int main()
 			nc_print_styled_char(tecla, 0xF, 0xD);
 		}
 	} while (tecla != '\n');
-	*/
 
 	while (1) ;
 

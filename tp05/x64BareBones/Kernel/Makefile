@@ -2,7 +2,7 @@ include Makefile.inc
 
 KERNEL=kernel.bin
 SOURCES = $(shell find . -name '*.c')
-SOURCES_ASM = $(shell find drivers -name '*.asm')
+SOURCES_ASM = $(shell find drivers lib -name '*.asm')
 OBJECTS=$(SOURCES:.c=.o)
 OBJECTS_ASM=$(SOURCES_ASM:.asm=.o)
 LOADERSRC=loader.asm

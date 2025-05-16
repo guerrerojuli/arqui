@@ -1,4 +1,4 @@
-#include <time.h>
+#include <timer.h>
 #include <stdint.h>
 
 static void int_20();
